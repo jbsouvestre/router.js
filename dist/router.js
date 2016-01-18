@@ -53,7 +53,7 @@ var define, requireModule, require, requirejs;
 })();
 
 define("router/handler-info",
-  ["./utils","rsvp/promise","exports"],
+  ["./utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var bind = __dependency1__.bind;
@@ -61,7 +61,7 @@ define("router/handler-info",
     var serialize = __dependency1__.serialize;
     var promiseLabel = __dependency1__.promiseLabel;
     var applyHook = __dependency1__.applyHook;
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
 
     function HandlerInfo(_props) {
       var props = _props || {};
@@ -230,7 +230,7 @@ define("router/handler-info",
     __exports__["default"] = HandlerInfo;
   });
 define("router/handler-info/factory",
-  ["router/handler-info/resolved-handler-info","router/handler-info/unresolved-handler-info-by-object","router/handler-info/unresolved-handler-info-by-param","exports"],
+  ["./resolved-handler-info","./unresolved-handler-info-by-object","./unresolved-handler-info-by-param","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var ResolvedHandlerInfo = __dependency1__["default"];
@@ -253,13 +253,13 @@ define("router/handler-info/factory",
     __exports__["default"] = handlerInfoFactory;
   });
 define("router/handler-info/resolved-handler-info",
-  ["../handler-info","router/utils","rsvp/promise","exports"],
+  ["../handler-info","../utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
     var subclass = __dependency2__.subclass;
     var promiseLabel = __dependency2__.promiseLabel;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     var ResolvedHandlerInfo = subclass(HandlerInfo, {
       resolve: function(shouldContinue, payload) {
@@ -284,7 +284,7 @@ define("router/handler-info/resolved-handler-info",
     __exports__["default"] = ResolvedHandlerInfo;
   });
 define("router/handler-info/unresolved-handler-info-by-object",
-  ["../handler-info","router/utils","rsvp/promise","exports"],
+  ["../handler-info","../utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
@@ -292,7 +292,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
     var subclass = __dependency2__.subclass;
     var promiseLabel = __dependency2__.promiseLabel;
     var isParam = __dependency2__.isParam;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
       getModel: function(payload) {
@@ -346,7 +346,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
     __exports__["default"] = UnresolvedHandlerInfoByObject;
   });
 define("router/handler-info/unresolved-handler-info-by-param",
-  ["../handler-info","router/utils","exports"],
+  ["../handler-info","../utils","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
@@ -380,11 +380,11 @@ define("router/handler-info/unresolved-handler-info-by-param",
     __exports__["default"] = UnresolvedHandlerInfoByParam;
   });
 define("router/router",
-  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","./handler-info","exports"],
+  ["route-recognizer","rsvp","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","./handler-info","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __dependency8__, __exports__) {
     "use strict";
     var RouteRecognizer = __dependency1__["default"];
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
     var trigger = __dependency3__.trigger;
     var log = __dependency3__.log;
     var slice = __dependency3__.slice;
@@ -439,7 +439,7 @@ define("router/router",
         }
 
         // No-op. No need to create a new transition.
-        return new Transition(this);
+        return this.activeTransition || new Transition(this);
       }
 
       if (isIntermediate) {
@@ -558,6 +558,7 @@ define("router/router",
           });
         }
 
+        this.oldState = undefined;
         this.state = new TransitionState();
         this.currentHandlerInfos = null;
       },
@@ -1487,14 +1488,14 @@ define("router/transition-intent/url-transition-intent",
     });
   });
 define("router/transition-state",
-  ["./handler-info","./utils","rsvp/promise","exports"],
+  ["./handler-info","./utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var ResolvedHandlerInfo = __dependency1__.ResolvedHandlerInfo;
     var forEach = __dependency2__.forEach;
     var promiseLabel = __dependency2__.promiseLabel;
     var callHook = __dependency2__.callHook;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     function TransitionState(other) {
       this.handlerInfos = [];
@@ -1603,10 +1604,10 @@ define("router/transition-state",
     __exports__["default"] = TransitionState;
   });
 define("router/transition",
-  ["rsvp/promise","./handler-info","./utils","exports"],
+  ["rsvp","./handler-info","./utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
-    var Promise = __dependency1__["default"];
+    var Promise = __dependency1__.Promise;
     var ResolvedHandlerInfo = __dependency2__.ResolvedHandlerInfo;
     var trigger = __dependency3__.trigger;
     var slice = __dependency3__.slice;
@@ -1614,13 +1615,19 @@ define("router/transition",
     var promiseLabel = __dependency3__.promiseLabel;
 
     /**
-      @private
-
       A Transition is a thennable (a promise-like object) that represents
       an attempt to transition to another route. It can be aborted, either
       explicitly via `abort` or by attempting another transition while a
       previous one is still underway. An aborted transition can also
       be `retry()`d later.
+
+      @class Transition
+      @constructor
+      @param {Object} router
+      @param {Object} intent
+      @param {Object} state
+      @param {Object} error
+      @private
      */
     function Transition(router, intent, state, error) {
       var transition = this;
@@ -1706,31 +1713,33 @@ define("router/transition",
       },
 
       /**
-        @public
-
         The Transition's internal promise. Calling `.then` on this property
         is that same as calling `.then` on the Transition object itself, but
         this property is exposed for when you want to pass around a
         Transition's promise, but not the Transition object itself, since
         Transition object can be externally `abort`ed, while the promise
         cannot.
+
+        @property promise
+        @type {Object}
+        @public
        */
       promise: null,
 
       /**
-        @public
-
         Custom state can be stored on a Transition's `data` object.
         This can be useful for decorating a Transition within an earlier
         hook and shared with a later hook. Properties set on `data` will
         be copied to new transitions generated by calling `retry` on this
         transition.
+       
+        @property data
+        @type {Object}
+        @public
        */
       data: null,
 
       /**
-        @public
-
         A standard promise hook that resolves if the transition
         succeeds and rejects if it fails/redirects/aborts.
 
@@ -1738,18 +1747,19 @@ define("router/transition",
         use in situations where you want to pass around a thennable,
         but not the Transition itself.
 
+        @method then
         @param {Function} onFulfilled
         @param {Function} onRejected
         @param {String} label optional string for labeling the promise.
         Useful for tooling.
         @return {Promise}
+        @public
        */
       then: function(onFulfilled, onRejected, label) {
         return this.promise.then(onFulfilled, onRejected, label);
       },
 
       /**
-        @public
 
         Forwards to the internal `promise` property which you can
         use in situations where you want to pass around a thennable,
@@ -1760,13 +1770,13 @@ define("router/transition",
         @param {String} label optional string for labeling the promise.
         Useful for tooling.
         @return {Promise}
+        @public
        */
       "catch": function(onRejection, label) {
         return this.promise["catch"](onRejection, label);
       },
 
       /**
-        @public
 
         Forwards to the internal `promise` property which you can
         use in situations where you want to pass around a thennable,
@@ -1777,16 +1787,19 @@ define("router/transition",
         @param {String} label optional string for labeling the promise.
         Useful for tooling.
         @return {Promise}
+        @public
        */
       "finally": function(callback, label) {
         return this.promise["finally"](callback, label);
       },
 
       /**
-        @public
-
         Aborts the Transition. Note you can also implicitly abort a transition
         by initiating another transition while a previous one is underway.
+
+        @method abort
+        @return {Transition} this transition
+        @public
        */
       abort: function() {
         if (this.isAborted) { return this; }
@@ -1799,11 +1812,14 @@ define("router/transition",
       },
 
       /**
-        @public
 
         Retries a previously-aborted transition (making sure to abort the
         transition if it's still active). Returns a new transition that
         represents the new attempt to transition.
+
+        @method retry
+        @return {Transition} new transition
+        @public
        */
       retry: function() {
         // TODO: add tests for merged state retry()s
@@ -1812,7 +1828,6 @@ define("router/transition",
       },
 
       /**
-        @public
 
         Sets the URL-changing method to be employed at the end of a
         successful transition. By default, a new Transition will just
@@ -1823,12 +1838,14 @@ define("router/transition",
         handleURL, since the URL has already changed before the
         transition took place).
 
+        @method method
         @param {String} method the type of URL-changing method to use
           at the end of a transition. Accepted values are 'replace',
           falsy values, or any other non-falsy value (which is
           interpreted as an updateURL transition).
 
         @return {Transition} this transition
+        @public
        */
       method: function(method) {
         this.urlMethod = method;
@@ -1836,7 +1853,6 @@ define("router/transition",
       },
 
       /**
-        @public
 
         Fires an event on the current list of resolved/resolving
         handlers within this transition. Useful for firing events
@@ -1844,8 +1860,10 @@ define("router/transition",
 
         Note: This method is also aliased as `send`
 
+        @method trigger
         @param {Boolean} [ignoreFailure=false] a boolean specifying whether unhandled events throw an error
         @param {String} name the name of the event to fire
+        @public
        */
       trigger: function (ignoreFailure) {
         var args = slice.call(arguments);
@@ -1859,16 +1877,16 @@ define("router/transition",
       },
 
       /**
-        @public
-
         Transitions are aborted and their promises rejected
         when redirects occur; this method returns a promise
         that will follow any redirects that occur and fulfill
         with the value fulfilled by any redirecting transitions
         that occur.
 
+        @method followRedirects
         @return {Promise} a promise that fulfills with the same
           value that the final redirecting transition fulfills with
+        @public
        */
       followRedirects: function() {
         var router = this.router;
